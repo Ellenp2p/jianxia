@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans SC", "PingFang SC", "Source Han Sans SC", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "Source Han Serif SC", serif;
+
+  --color-paper: #f3eee6;
+  --color-sheet: #fffdf8;
+  --color-ink: #1c1916;
+  --color-muted: #5e564e;
+  --color-line: #e4d9cc;
+  --color-seal: #9d3424;
+  --color-seal-ink: #fff7f4;
+  --color-rail: #221e1a;
+  --color-rail-fg: #f3eee6;
+  --color-rail-muted: #ddd2c6;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+.frame {
+  aspect-ratio: 4 / 3;
+}
+
+.seal-mark {
+  border: 1px solid var(--color-seal);
+  color: var(--color-seal);
+  background: color-mix(in srgb, var(--color-sheet) 88%, transparent);
+  letter-spacing: 0.14em;
+  transform: rotate(-8deg);
+}
+
+.seal-pulse {
+  animation: seal-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes seal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-pulse {
+    animation: none;
+  }
+}
