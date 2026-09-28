@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block body %}
+<main class="gate">
+  <article class="gate-box">
+    <header>
+      <p class="title">笺匣</p>
+    </header>
+
+    {% if phase == "missing" %}
+    <p class="muted">匣还没开。机器人要在服务器上接好，这个页面只负责认出管理员。</p>
+    {% endif %}
+
+    {% if phase == "login" %}
+    <p class="muted">到 Telegram 里点一下就进来。只有管理员那个号能看见档案。</p>
+    <div class="stack">
+      {% if bot_username != "" %}
+      <div id="tg-login"></div>
+      {% endif %}
+      <form method="post" action="/login/start">
+        <button class="btn btn-seal btn-wide" type="submit">{% if waiting %}等你在 Telegram 里确认{% else %}打开 Telegram{% endif %}</button>
+      </form>
+      {% if login_url != "" %}
+      <a class="muted" href="{{ login_url }}" target="_blank" rel="noreferrer">去和机器人私聊</a>
+      {% endif %}
+      {% if waiting %}
+      <meta http-equiv="refresh" content="2" />
+      {% endif %}
+    </div>
+    {% if waiting %}
+    {% else %}
+    {% if bot_username != "" %}
+    <script src="https://telegram.org/js/telegram-widget.js?22"
+      data-telegram-login="{{ bot_username }}"
+      data-size="large"
+      data-request-access="write"
+      data-onauth="onTelegramAuth(user)"
+      async></script>
+    <script>
+      function onTelegramAuth(user) {
+        const f = document.createElement("form");
+        f.method = "post"; f.action = "/login/widget";
+        for (const [k, v] of Object.entries(user)) {
+          const i = document.createElement("input");
+          i.type = "hidden"; i.name = k; i.value = v;
+          f.appendChild(i);
+        }
+        document.body.appendChild(f); f.submit();
+      }
+    </script>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    {% if phase == "denied" %}
+    <p class="muted">不是管理员，匣里什么都不给你看。</p>
+    <div class="stack">
+      <a class="btn" href="/">换一个号</a>
+    </div>
+    {% endif %}
+
+    {% if error != "" %}
+    <p class="err">{{ error }}</p>
+    {% endif %}
+  </article>
+</main>
+{% endblock %}

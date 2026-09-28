@@ -1,22 +1,55 @@
 # 笺匣
 
-Telegram 私人归档。网页用 Telegram 登录，只有填进去的管理员数字 ID 能看到档案。别人打开页面，或者在机器人里查，都不会拿到记录。
+纯 Rust：Axum + Askama SSR 页面，同一个进程跑 Telegram Bot。
 
-## 本地
+**Bot Token 和管理员数字 ID 只在启动时配置，网页里不会出现、也不能改。**
 
-需要 Node.js 22。
+## 配置（三选一）
 
-```bash
-npm install
-npm run dev
+环境变量（或 `.env`）：
+
+```
+JIANXIA_BOT_TOKEN=123456789:AAH...
+JIANXIA_ADMIN_ID=你的Telegram数字ID
+BETTER_AUTH_SECRET=一串随机密钥
 ```
 
-Bot Token 只在网页里填写，不要写进这个仓库。
+或 `jianxia.toml`（可参考 `jianxia.toml.example`）：
 
-## 长期挂着
+```toml
+bot_token = "123456789:AAH..."
+admin_id = "123456789"
+```
 
-把仓库部署到带 https 的站点，数据库用 Postgres（例如 Neon）。加密密钥放在环境变量 `BETTER_AUTH_SECRET`，也不要提交。
+或启动参数：
 
-页面开着时由网页去听。页面关掉还要继续收，在规则里交给服务器。站点必须是公网 https，Telegram 才能把消息推过来。
+```bash
+cargo run --manifest-path app/Cargo.toml -- --token '123:AAH...' --admin-id 123456789
+```
 
-登录不用 `/setdomain`。用「打开 Telegram 登录」，到机器人私聊里确认。对上管理员数字 ID 才进笺匣。
+优先级：命令行 > 环境变量 > 配置文件。
+
+## 日志
+
+默认就是 `info`。终端里会看到启动、开始收，以及**每一条**从 Telegram 进来的消息。
+
+```bash
+# 默认（info 及以上）
+cargo run --manifest-path app/Cargo.toml
+
+# 更细
+RUST_LOG=jianxia=debug cargo run --manifest-path app/Cargo.toml
+
+# 或
+cargo run --manifest-path app/Cargo.toml -- --log info
+```
+
+也可用环境变量 `JIANXIA_LOG` / `RUST_LOG`。等级：`error` < `warn` < `info` < `debug`。`info` 及以上时，收到文字、图片、视频、命令都会打一行。
+
+## 启动
+
+```bash
+cargo run --manifest-path app/Cargo.toml
+```
+
+打开 http://localhost:8080 ，用 Telegram 登录（必须是配置里的那个管理员 ID）。点「开始收」后，关页面也会继续收。

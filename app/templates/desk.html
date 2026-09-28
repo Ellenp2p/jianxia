@@ -1,0 +1,498 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="desk">
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand-row">
+        <div class="brand-mark">匣</div>
+        <div>
+          <p class="title" style="font-size:1.25rem;color:var(--rail-fg)">笺匣</p>
+          <p class="muted" style="color:var(--rail-muted)">替你收下图片和视频</p>
+        </div>
+      </div>
+      <nav class="rail-nav">
+        <a href="/?view=archive" class="{% if view == "archive" %}on{% endif %}">归档</a>
+        <a href="/?view=people" class="{% if view == "people" %}on{% endif %}">人物</a>
+        <a href="/?view=ledger" class="{% if view == "ledger" %}on{% endif %}">流水</a>
+        <a href="/?view=rules" class="{% if view == "rules" %}on{% endif %}">规则</a>
+      </nav>
+      <dl class="stats">
+        <div><dt style="color:var(--rail-muted)">主档</dt><dd>{{ kept }}</dd></div>
+        <div><dt style="color:var(--rail-muted)">去掉的重复</dt><dd>{{ dups }}</dd></div>
+        <div><dt style="color:var(--rail-muted)">人物</dt><dd>{{ people_count }}</dd></div>
+      </dl>
+    </aside>
+    <div class="main">
+      <header class="head">
+        <div class="head-top">
+          <div class="brand-row">
+            <div class="brand-mark">匣</div>
+            <div>
+              <p class="title" style="font-size:1.25rem">笺匣</p>
+              <p class="muted">电报秘书</p>
+            </div>
+          </div>
+          <span class="muted"><span class="dot {% if listening %}on{% endif %}"></span> {% if listening %}正在收{% else %}没在收{% endif %}</span>
+          <a class="btn btn-ghost" href="/logout">退出</a>
+        </div>
+        <div class="head-row">
+          <div>
+            <p class="kicker">电报秘书</p>
+            <h2 class="page-title">{{ title }}</h2>
+          </div>
+          <div class="actions">
+            <span class="muted" style="display:inline-flex;align-items:center;gap:.5rem">
+              <span class="dot {% if listening %}on{% endif %}"></span>
+              {% if listening %}正在收{% else %}没在收{% endif %}
+            </span>
+            {% if listening %}
+            <form method="post" action="/listen/stop"><button class="btn btn-ink" type="submit">停下来</button></form>
+            {% else %}
+            <form method="post" action="/listen"><button class="btn btn-seal" type="submit">开始收</button></form>
+            {% endif %}
+            <a class="btn btn-ghost" href="/export">导出档案</a>
+          </div>
+        </div>
+        {% if error != "" %}<p class="err">{{ error }}</p>{% endif %}
+      </header>
+      <main class="content">
+        {% if view == "archive" %}
+          <form class="filters" method="get">
+            <input type="hidden" name="view" value="archive" />
+            <div class="chips">
+              <button class="chip {% if filter == "all" %}on{% endif %}" name="filter" value="all">全部</button>
+              <button class="chip {% if filter == "text" %}on{% endif %}" name="filter" value="text">文字</button>
+              <button class="chip {% if filter == "photo" %}on{% endif %}" name="filter" value="photo">图片</button>
+              <button class="chip {% if filter == "video" %}on{% endif %}" name="filter" value="video">视频</button>
+              <button class="chip {% if filter == "kept" %}on{% endif %}" name="filter" value="kept">主档</button>
+              <button class="chip {% if filter == "duplicate" %}on{% endif %}" name="filter" value="duplicate">重复</button>
+            </div>
+            <input class="search" name="q" value="{{ query }}" placeholder="搜文字、标题或聊天" />
+          </form>
+          {% if items.is_empty() %}
+          <div class="empty">
+            <h3>{% if has_any %}这个筛选下没有记录{% else %}档案还是空的{% endif %}</h3>
+            <p class="muted">{% if has_any %}换一个筛选，或者把搜索清掉。{% else %}点「开始收」之后，所有消息都会写到这里。{% endif %}</p>
+          </div>
+          {% else %}
+          {% if packable > 0 %}
+          <form id="pack-form" class="pack-bar" method="post" action="/pack">
+            <button class="btn" type="button" id="pack-all">全选本页</button>
+            <button class="btn btn-ink" type="submit" id="pack-go" disabled>打包已选</button>
+            <span class="muted" id="pack-count">勾选要带走的图片或视频</span>
+          </form>
+          {% endif %}
+          <div class="thumbs">
+            {% for item in items %}
+            <article class="card">
+              {% if item.packable %}
+              <label class="card-pick">
+                <input type="checkbox" form="pack-form" name="id" value="{{ item.id }}" />
+              </label>
+              {% endif %}
+              <form class="card-del" method="post" action="/item/del" onsubmit="return confirm('从档案里拿掉这条？');">
+                <input type="hidden" name="id" value="{{ item.id }}" />
+                <input type="hidden" name="filter" value="{{ filter }}" />
+                <input type="hidden" name="q" value="{{ query }}" />
+                <button type="submit" aria-label="删除" title="删除">×</button>
+              </form>
+              <a class="card-link" href="/?view=archive&filter={{ filter }}&q={{ query }}&id={{ item.id }}">
+                <div class="frame">
+                  {% if item.preview != "" %}
+                  <img src="{{ item.preview }}" alt="{{ item.caption }}" />
+                  {% else %}
+                  <div class="frame-fallback">
+                    <p>{{ item.caption }}</p>
+                  </div>
+                  {% endif %}
+                  <span class="kind-mark">{{ item.kind }}</span>
+                  {% if item.reveal != "普通" %}<span class="seal-mark">{{ item.reveal }}</span>{% endif %}
+                  {% if item.duplicate %}<span class="dup-mark">重复</span>{% endif %}
+                </div>
+              </a>
+            </article>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% match selected %}
+          {% when Some with (sel) %}
+          <div class="detail">
+            <div class="detail-card">
+              <a class="btn btn-ghost" href="/?view=archive&filter={{ filter }}&q={{ query }}">关闭</a>
+              <h3 class="title" style="font-size:1.5rem;margin:.75rem 0">{{ sel.caption }}</h3>
+              <p class="muted">{{ sel.meta }}</p>
+              {% if sel.motion %}
+                {% if sel.file_id != "" %}
+                <video src="/file?id={{ sel.file_id }}" {% if sel.preview != "" %}poster="{{ sel.preview }}"{% endif %} controls playsinline style="width:100%;border-radius:1rem;margin:1rem 0;background:var(--rail)"></video>
+                {% else if sel.preview != "" %}
+                <img src="{{ sel.preview }}" alt="" style="width:100%;border-radius:1rem;margin:1rem 0" />
+                {% endif %}
+              {% else if sel.preview != "" %}
+              <img src="{{ sel.preview }}" alt="" style="width:100%;border-radius:1rem;margin:1rem 0" />
+              {% else %}
+              <div class="frame" style="aspect-ratio:16/9;margin:1rem 0;border-radius:1rem">
+                <div class="frame-fallback">
+                  <p class="title" style="font-size:1.25rem;margin:0">{{ sel.kind }}</p>
+                </div>
+              </div>
+              {% endif %}
+              <p class="muted">{{ sel.detail }}</p>
+              {% if sel.hash != "" %}<p class="hash" style="margin-top:.75rem">文件指纹 {{ sel.hash }}</p>{% endif %}
+              {% if sel.saved %}<p class="ok">原件已保存在这台机器</p>{% endif %}
+              {% if sel.file_id != "" %}
+              <p><a class="btn btn-ink" href="/file?id={{ sel.file_id }}">{% if sel.saved %}打开原件{% else %}拉取原件{% endif %}</a></p>
+              {% endif %}
+              <form method="post" action="/item/del" onsubmit="return confirm('从档案里拿掉这条？');" style="margin-top:.75rem">
+                <input type="hidden" name="id" value="{{ sel.id }}" />
+                <input type="hidden" name="filter" value="{{ filter }}" />
+                <input type="hidden" name="q" value="{{ query }}" />
+                <button class="btn btn-danger" type="submit">删除</button>
+              </form>
+            </div>
+          </div>
+          {% when None %}
+          {% endmatch %}
+          <div id="pack-modal" class="pack-modal" hidden>
+            <div class="pack-dialog" role="dialog" aria-modal="true" aria-labelledby="pack-modal-title">
+              <h3 class="title" id="pack-modal-title" style="font-size:1.35rem;margin:0">确认打包</h3>
+              <p class="muted" id="pack-modal-copy" style="margin:.75rem 0 0"></p>
+              <div class="pack-progress" id="pack-progress" hidden>
+                <div class="pack-progress-bar indeterminate" id="pack-bar-wrap"><span id="pack-bar"></span></div>
+                <p class="muted" id="pack-modal-status" style="margin:.5rem 0 0"></p>
+              </div>
+              <div class="pack-modal-actions" id="pack-modal-actions">
+                <button type="button" class="btn" id="pack-cancel">取消</button>
+                <button type="button" class="btn btn-ink" id="pack-ok">开始打包</button>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if view == "people" %}
+          <p class="muted">每有人开口，就按隐藏 ID 更新这一行。筛选和私聊里发「人 私聊 昨天」「历史 群 闪照」是同一套。</p>
+          <div class="filters">
+            <a class="chip {% if scope == "all" %}on{% endif %}" href="/?view=people&scope=all&when={{ when }}{% if flash %}&flash=1{% endif %}&q={{ query }}">全部</a>
+            <a class="chip {% if scope == "private" %}on{% endif %}" href="/?view=people&scope=private&when={{ when }}{% if flash %}&flash=1{% endif %}&q={{ query }}">私聊</a>
+            <a class="chip {% if scope == "group" %}on{% endif %}" href="/?view=people&scope=group&when={{ when }}{% if flash %}&flash=1{% endif %}&q={{ query }}">群聊</a>
+            <a class="chip {% if scope == "channel" %}on{% endif %}" href="/?view=people&scope=channel&when={{ when }}{% if flash %}&flash=1{% endif %}&q={{ query }}">频道</a>
+          </div>
+          <div class="filters">
+            <a class="chip {% if when == "all" %}on{% endif %}" href="/?view=people&scope={{ scope }}&when=all{% if flash %}&flash=1{% endif %}&q={{ query }}">全部时间</a>
+            <a class="chip {% if when == "today" %}on{% endif %}" href="/?view=people&scope={{ scope }}&when=today{% if flash %}&flash=1{% endif %}&q={{ query }}">今天</a>
+            <a class="chip {% if when == "yesterday" %}on{% endif %}" href="/?view=people&scope={{ scope }}&when=yesterday{% if flash %}&flash=1{% endif %}&q={{ query }}">昨天</a>
+            <a class="chip {% if when == "week" %}on{% endif %}" href="/?view=people&scope={{ scope }}&when=week{% if flash %}&flash=1{% endif %}&q={{ query }}">近7天</a>
+            <a class="chip {% if when == "month" %}on{% endif %}" href="/?view=people&scope={{ scope }}&when=month{% if flash %}&flash=1{% endif %}&q={{ query }}">本月</a>
+            {% if flash %}
+            <a class="chip on" href="/?view=people&scope={{ scope }}&when={{ when }}&q={{ query }}">只看闪照和遮罩</a>
+            {% else %}
+            <a class="chip" href="/?view=people&scope={{ scope }}&when={{ when }}&flash=1&q={{ query }}">只看闪照和遮罩</a>
+            {% endif %}
+          </div>
+          <form method="get" class="filters">
+            <input type="hidden" name="view" value="people" />
+            <input type="hidden" name="scope" value="{{ scope }}" />
+            <input type="hidden" name="when" value="{{ when }}" />
+            {% if flash %}<input type="hidden" name="flash" value="1" />{% endif %}
+            <input class="search" name="q" value="{{ query }}" placeholder="名字、用户名、隐藏 ID 或标题" />
+            <button class="btn" type="submit">筛选</button>
+          </form>
+          <p class="muted">{{ query_desc }}</p>
+          <h3 class="title" style="font-size:1.5rem">说话的人</h3>
+          {% if people.is_empty() %}
+          <div class="empty"><h3>这个筛选下没有人</h3></div>
+          {% else %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>表面名</th><th>用户名</th><th>隐藏 ID</th><th>说过</th><th>最近</th></tr></thead>
+              <tbody>
+              {% for p in people %}
+                <tr {% if p.on %}style="background:var(--paper)"{% endif %}>
+                  <td><a href="/?view=people&scope={{ scope }}&when={{ when }}{% if flash %}&flash=1{% endif %}&q={{ query }}&pid={{ p.hidden_id }}">{{ p.display_name }}</a></td>
+                  <td>{{ p.username }}</td>
+                  <td>{{ p.hidden_id }}</td>
+                  <td>{{ p.speak_count }}</td>
+                  <td>{{ p.last_seen }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+          {% if person_id != "" %}
+          <p class="muted"><a href="/?view=people&scope={{ scope }}&when={{ when }}{% if flash %}&flash=1{% endif %}&q={{ query }}">看全部人</a> · 当前隐藏 ID {{ person_id }}</p>
+          {% endif %}
+          <h3 class="title" style="font-size:1.5rem;margin-top:1.5rem">媒体</h3>
+          {% if history_rows.is_empty() %}
+          <div class="empty"><h3>这个筛选下没有照片或视频</h3></div>
+          {% else %}
+          <div class="logs">
+            {% for row in history_rows %}
+            <div class="log">
+              {% if row.preview != "" %}
+              <img class="thumb" src="{{ row.preview }}" alt="" />
+              {% endif %}
+              <time class="muted">{{ row.at }}</time>
+              <span>{{ row.kind }} · {{ row.reveal }}</span>
+              <div>
+                <p style="margin:0;font-weight:500">{{ row.caption }}</p>
+                <p class="muted" style="margin:.25rem 0 0">{{ row.who }}</p>
+                {% if row.hash != "" %}<p class="hash">指纹 {{ row.hash }}</p>{% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endif %}
+
+        {% if view == "ledger" %}
+          <p class="muted">每一条进来的图片或视频都会留在这里：收下、判定重复，或因为来源和类型被跳过。</p>
+          {% if logs.is_empty() %}
+          <div class="empty"><h3>流水是空的</h3><p class="muted">开始收之后，决定会写在这里。</p></div>
+          {% else %}
+          <div class="logs">
+            {% for log in logs %}
+            <div class="log">
+              <time class="muted">{{ log.at }}</time>
+              <span>{{ log.level }}</span>
+              <div>
+                <p style="margin:0;font-weight:500">{{ log.title }}</p>
+                <p class="muted" style="margin:.25rem 0 0">{{ log.detail }}</p>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endif %}
+
+        {% if view == "rules" %}
+        <div class="panel">
+          <p class="muted">指定频道，或收下新的私聊。</p>
+          <form class="block" method="post" action="/rules">
+            <fieldset>
+            <h3>壹 · 机器人</h3>
+            <p class="ok">{% if bot_username != "" %}{{ bot_name }} · @{{ bot_username }}{% else %}还没接上机器人{% endif %}</p>
+            <h3>贰 · 收什么</h3>
+            <label class="rule"><span><strong>闪照</strong><p class="muted">阅后即焚和遮罩图</p></span><input type="checkbox" name="flashes" {% if settings.flashes %}checked{% endif %} /></label>
+            <label class="rule"><span><strong>图片</strong><p class="muted">普通照片</p></span><input type="checkbox" name="photos" {% if settings.photos %}checked{% endif %} /></label>
+            <label class="rule"><span><strong>视频</strong><p class="muted">视频和视频留言</p></span><input type="checkbox" name="videos" {% if settings.videos %}checked{% endif %} /></label>
+            <label class="rule"><span><strong>文件里的图片和视频</strong><p class="muted">当文件发来时也收下</p></span><input type="checkbox" name="documents" {% if settings.documents %}checked{% endif %} /></label>
+            <label class="rule"><span><strong>动图</strong><p class="muted">默认关掉</p></span><input type="checkbox" name="animations" {% if settings.animations %}checked{% endif %} /></label>
+            <h3>保存</h3>
+            <label class="rule"><span><strong>收下时保存原件</strong><p class="muted">默认打开。图片和视频写到这台机器，网页上显示缩略图。单件不超过 100 MB。</p></span><input type="checkbox" name="keep_files" {% if settings.keep_files %}checked{% endif %} /></label>
+            <h3>叁 · 从哪里收</h3>
+            <label class="rule"><span><strong>新的私聊</strong><p class="muted">有人第一次把媒体发给机器人</p></span><input type="checkbox" name="watch_new_private" {% if settings.watch_new_private %}checked{% endif %} /></label>
+            <label class="rule"><span><strong>新的群</strong><p class="muted">默认关掉</p></span><input type="checkbox" name="watch_new_groups" {% if settings.watch_new_groups %}checked{% endif %} /></label>
+            <p><button class="btn btn-ink" type="submit">保存规则</button></p>
+            </fieldset>
+          </form>
+          <form class="block" method="post" action="/source/add">
+            <h3>来源名单</h3>
+            <label class="field">频道 @用户名 或聊天编号
+              <input name="query" placeholder="@channel 或 -100..." />
+            </label>
+            <p><button class="btn" type="submit">加入来源</button></p>
+            <ul>
+              {% for src in sources %}
+              <li class="rule">
+                <span>{{ src.query }} {% if src.resolved_title != "" %}· {{ src.resolved_title }}{% endif %}</span>
+                <form method="post" action="/source/del"><input type="hidden" name="id" value="{{ src.id }}" /><button class="btn btn-ghost" type="submit">删除</button></form>
+              </li>
+              {% endfor %}
+            </ul>
+          </form>
+        </div>
+        {% endif %}
+      </main>
+    </div>
+  </div>
+  <nav class="bottom">
+    <ul>
+      <li><a href="/?view=archive" class="{% if view == "archive" %}on{% endif %}">归档</a></li>
+      <li><a href="/?view=people" class="{% if view == "people" %}on{% endif %}">人物</a></li>
+      <li><a href="/?view=ledger" class="{% if view == "ledger" %}on{% endif %}">流水</a></li>
+      <li><a href="/?view=rules" class="{% if view == "rules" %}on{% endif %}">规则</a></li>
+    </ul>
+  </nav>
+</div>
+{% if view == "archive" %}
+<script>
+(function () {
+  var form = document.getElementById("pack-form");
+  var packing = false;
+  function boxes() {
+    return Array.prototype.slice.call(document.querySelectorAll('.card-pick input[name="id"]'));
+  }
+  function selected() {
+    return boxes().filter(function (el) { return el.checked; });
+  }
+  if (form) {
+    var countEl = document.getElementById("pack-count");
+    var go = document.getElementById("pack-go");
+    var all = document.getElementById("pack-all");
+    var modal = document.getElementById("pack-modal");
+    var copy = document.getElementById("pack-modal-copy");
+    var title = document.getElementById("pack-modal-title");
+    var progress = document.getElementById("pack-progress");
+    var barWrap = document.getElementById("pack-bar-wrap");
+    var bar = document.getElementById("pack-bar");
+    var status = document.getElementById("pack-modal-status");
+    var actions = document.getElementById("pack-modal-actions");
+    var cancel = document.getElementById("pack-cancel");
+    var ok = document.getElementById("pack-ok");
+    function sync() {
+      var n = selected().length;
+      if (go) go.disabled = n === 0 || packing;
+      if (countEl) countEl.textContent = n === 0 ? "勾选要带走的图片或视频" : "已选 " + n + " 件";
+      if (all) all.textContent = n > 0 && n === boxes().length ? "取消全选" : "全选本页";
+    }
+    function closeModal() {
+      if (packing) return;
+      modal.hidden = true;
+    }
+    function showConfirm() {
+      var n = selected().length;
+      if (n === 0) return;
+      title.textContent = "确认打包";
+      copy.textContent = "将打包 " + n + " 件图片或视频。确认后开始收拢原件。";
+      progress.hidden = true;
+      actions.hidden = false;
+      ok.disabled = false;
+      cancel.disabled = false;
+      modal.hidden = false;
+    }
+    function setBusy(n) {
+      packing = true;
+      title.textContent = "正在打包";
+      copy.textContent = "正在收拢 " + n + " 件原件，请稍等。";
+      progress.hidden = false;
+      actions.hidden = true;
+      barWrap.classList.add("indeterminate");
+      bar.style.width = "";
+      status.textContent = "正在打包…";
+      if (go) go.disabled = true;
+    }
+    function setProgress(pct, label) {
+      barWrap.classList.remove("indeterminate");
+      bar.style.width = Math.max(2, Math.min(100, pct)) + "%";
+      status.textContent = label;
+    }
+    function setDone(name) {
+      packing = false;
+      title.textContent = "已经打好";
+      copy.textContent = name ? "浏览器开始保存 " + name + "。" : "浏览器开始保存压缩包。";
+      progress.hidden = true;
+      actions.hidden = false;
+      ok.hidden = true;
+      cancel.textContent = "好";
+      cancel.disabled = false;
+      sync();
+    }
+    function setError(msg) {
+      packing = false;
+      title.textContent = "没打成";
+      copy.textContent = msg || "打包失败。";
+      progress.hidden = true;
+      actions.hidden = false;
+      ok.hidden = true;
+      cancel.textContent = "关闭";
+      cancel.disabled = false;
+      sync();
+    }
+    document.addEventListener("change", function (ev) {
+      if (ev.target && ev.target.matches && ev.target.matches(".card-pick input")) sync();
+    });
+    if (all) {
+      all.addEventListener("click", function () {
+        var list = boxes();
+        var on = list.some(function (el) { return !el.checked; });
+        list.forEach(function (el) { el.checked = on; });
+        sync();
+      });
+    }
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (packing) return;
+      ok.hidden = false;
+      cancel.textContent = "取消";
+      showConfirm();
+    });
+    cancel.addEventListener("click", closeModal);
+    modal.addEventListener("click", function (ev) {
+      if (ev.target === modal) closeModal();
+    });
+    ok.addEventListener("click", function () {
+      var picks = selected();
+      var n = picks.length;
+      if (n === 0 || packing) return;
+      setBusy(n);
+      var data = new URLSearchParams();
+      picks.forEach(function (el) { data.append("id", el.value); });
+      fetch("/pack", {
+        method: "POST",
+        body: data,
+        headers: { "x-jianxia-pack": "1", "accept": "application/json, application/zip" },
+        credentials: "same-origin"
+      }).then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (j) {
+            throw new Error((j && j.error) || "打包失败");
+          }).catch(function (err) {
+            if (err && err.message && err.message !== "打包失败") throw err;
+            throw new Error("打包失败");
+          });
+        }
+        var total = Number(res.headers.get("content-length") || 0);
+        var disp = res.headers.get("content-disposition") || "";
+        var name = "jianxia.zip";
+        var m = /filename=\"?([^\";]+)\"?/i.exec(disp);
+        if (m) name = m[1];
+        status.textContent = "正在下载…";
+        if (!res.body || !res.body.getReader) {
+          return res.blob().then(function (blob) { return { blob: blob, name: name }; });
+        }
+        var reader = res.body.getReader();
+        var chunks = [];
+        var got = 0;
+        function pump() {
+          return reader.read().then(function (part) {
+            if (part.done) {
+              return { blob: new Blob(chunks, { type: "application/zip" }), name: name };
+            }
+            chunks.push(part.value);
+            got += part.value.length;
+            if (total > 0) {
+              var pct = Math.round((got / total) * 100);
+              setProgress(pct, "正在下载 " + pct + "%");
+            } else {
+              status.textContent = "正在下载…";
+            }
+            return pump();
+          });
+        }
+        return pump();
+      }).then(function (file) {
+        var url = URL.createObjectURL(file.blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        setDone(file.name);
+      }).catch(function (err) {
+        setError(err && err.message ? err.message : "打包失败");
+      });
+    });
+    sync();
+  }
+  {% if listening %}
+  setTimeout(function () {
+    if (packing || document.querySelector(".card-pick input:checked")) return;
+    location.reload();
+  }, 8000);
+  {% endif %}
+})();
+</script>
+{% endif %}
+{% endblock %}

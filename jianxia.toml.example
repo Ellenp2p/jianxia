@@ -1,0 +1,10 @@
+# 复制为 jianxia.toml 后填写。不要把填好的文件提交进 git。
+# 优先级：命令行 > 环境变量 > 本文件
+
+bot_token = "123456789:AAH..."
+admin_id = "123456789"
+
+# bind = "0.0.0.0:8080"
+# data_dir = "data"
+# vault_secret = "至少16个字符的随机串"
+# poll_ms = 4000

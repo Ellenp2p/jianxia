@@ -1,10 +1,24 @@
-node_modules
+# Rust
+app/target/
+/target/
+
+# 运行时档案（含 sqlite、原件、缩略图、打包）
+/data/
+
+# 本地密钥
+.env
+.env.*
+!.env.example
+jianxia.toml
+
+# 旧 Node / 编辑器
+node_modules/
 .vercel
+.output
 .tanstack
 screenshots
 artifacts
 .grok
 *.log
-.env
-.env.*
-!.env.example
+.DS_Store
+*.pdb
